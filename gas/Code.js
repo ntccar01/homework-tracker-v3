@@ -258,6 +258,9 @@ function addYear(data) {
     return jsonResponse({ success: false, error: '學年度已存在' });
   }
   
+  // 在 students 工作表新增一筆空紀錄，讓學年度被記錄
+  sheet.appendRow([year, '', '', '']);
+  
   return jsonResponse({ success: true });
 }
 
