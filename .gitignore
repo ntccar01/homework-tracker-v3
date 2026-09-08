@@ -1,0 +1,29 @@
+# Google Drive 系統檔
+desktop.ini
+*.tmp
+~$*
+
+# ===== 敏感資料（絕不能 commit） =====
+# 環境變數與金鑰
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.p12
+credentials.*
+credential.*
+service-account*
+*.token
+*.oauth
+
+# Claude/OpenCode 本地設定
+.claude/
+
+# IDE 設定
+.vscode/
+.idea/
+
+# Node.js
+node_modules/
+package-lock.json
