@@ -1,0 +1,20 @@
+{
+  "name": "homework-tracker-v3",
+  "version": "3.1.0",
+  "private": true,
+  "description": "Teacher homework tracker with verified GAS writes and local drafts",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check js/core.js && node --check js/api.js && node --check js/app.js && node --check gas/Code.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0",
+    "prettier": "3.6.2"
+  },
+  "dependencies": {
+    "html2canvas": "1.4.1"
+  }
+}

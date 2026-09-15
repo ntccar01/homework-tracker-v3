@@ -27,4 +27,31 @@ service-account*
 
 # Node.js
 node_modules/
-package-lock.json
+test-results/
+
+# Local exports, student records and browser captures
+private/
+data/
+exports/
+backups/
+screenshots/
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.har
+*.log
+*.zip
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*草稿*.json
+*備份*.json
+*draft*.json
+*backup*.json
+credentials/
+.clasp.json
+.clasprc.json
+client_secret*.json
+*service_account*.json

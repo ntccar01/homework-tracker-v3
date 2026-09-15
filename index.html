@@ -1,704 +1,364 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>作業登記系統 v3.0</title>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-
-  <!-- 載入遮罩 -->
-  <div id="loading-overlay" class="loading-overlay">
-    <div class="loading-box">
-      <div class="loading-icon">⏳</div>
-      <div id="loading-msg" class="loading-msg">載入中…</div>
-    </div>
-  </div>
-
-  <!-- 鎖屏 -->
-  <div id="lock-screen" class="lock-screen">
-    <div class="lock-box">
-      <div class="lock-icon">🔐</div>
-      <div class="lock-title">教師專用系統</div>
-      <div class="lock-sub">請輸入教師驗證密碼</div>
-      <input type="password" class="lock-input" id="lock-input" placeholder="••••" maxlength="8">
-      <button class="btn btn-primary" style="width:100%" onclick="checkPassword()">進入系統</button>
-      <div class="lock-hint">預設密碼：1234</div>
-    </div>
-  </div>
-
-  <!-- 導航列 -->
-  <nav class="top-nav">
-    <div class="logo">作業<span>登記</span></div>
-    <span class="version-text" onclick="openModal('version-modal')">v3.0 ▸</span>
-  </nav>
-
-  <!-- 標籤頁 -->
-  <div class="tab-bar">
-    <div class="tab active" onclick="switchTab('input')">
-      <span class="tab-icon">✏️</span>登記
-    </div>
-    <div class="tab" onclick="switchTab('report')">
-      <span class="tab-icon">📊</span>報表
-    </div>
-    <div class="tab tab-mgmt" onclick="switchTab('manage')">
-      <span class="tab-icon">🗂️</span>班級管理
-    </div>
-    <div class="tab" onclick="switchTab('settings')">
-      <span class="tab-icon">⚙️</span>設定
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════
-       頁面：登記
-  ══════════════════════════════ -->
-  <div class="page active" id="page-input">
-    <!-- 選擇區域 -->
-    <div class="card">
-      <div class="card-title">📌 選擇班級與作業</div>
-      
-      <div class="field">
-        <label>學年度</label>
-        <div class="select-wrap">
-          <select id="sel-year" onchange="onYearChange()">
-            <option value="">— 請選擇學年度 —</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="field">
-        <label>班級</label>
-        <div class="select-wrap">
-          <select id="sel-class" onchange="onClassChange()">
-            <option value="">— 請先選學年度 —</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="field">
-        <label>科目</label>
-        <div class="select-wrap">
-          <select id="sel-subject" onchange="onSubjectChange()">
-            <option value="">— 請先選班級 —</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="field">
-        <label>單元 / 作業名稱</label>
-        <div class="select-wrap">
-          <select id="sel-unit">
-            <option value="">— 請先選科目 —</option>
-          </select>
-        </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>作業登記系統 v3.1 修正版</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="js/core.js" defer></script>
+    <script src="js/api.js" defer></script>
+    <script src="js/app.js" defer></script>
+  </head>
+  <body>
+    <div
+      id="lock-screen"
+      class="lock-screen"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="lock-title"
+    >
+      <div class="lock-box">
+        <div class="lock-icon">🔐</div>
+        <h1 id="lock-title" class="lock-title">作業登記小幫手</h1>
+        <p class="lock-sub">此密碼僅用於本機畫面鎖定</p>
+        <label for="lock-input">本機密碼</label>
+        <input
+          id="lock-input"
+          class="lock-input"
+          type="password"
+          minlength="4"
+          maxlength="64"
+          autocomplete="current-password"
+        />
+        <button id="unlock-btn" class="btn btn-primary">進入系統</button>
+        <p class="lock-hint">初次使用：1234</p>
+        <p id="lock-error" role="alert"></p>
       </div>
     </div>
-
-    <!-- 資訊列 -->
-    <div class="info-bar" id="loaded-bar">📂 已載入先前紀錄，可繼續修改後送出</div>
-
-    <!-- 進度卡片 -->
-    <div class="card" id="progress-card" style="display:none">
-      <div class="card-title">📈 目前登記進度</div>
-      <div class="progress-bar-wrap">
-        <div class="progress-labels">
-          <span id="prog-label-left">已登記 0 人</span>
-          <span id="prog-label-right">0%</span>
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill submitted" id="prog-submitted" style="width:0%"></div>
-          <div class="progress-fill late" id="prog-late" style="width:0%"></div>
-          <div class="progress-fill missing" id="prog-missing" style="width:0%"></div>
-        </div>
+    <div id="app-shell" inert>
+      <nav class="top-nav" aria-label="系統列">
+        <div class="logo">作業<span>登記</span></div>
+        <span>v3.1 修正版</span
+        ><button id="lock-btn" class="btn btn-outline btn-sm">鎖定</button>
+      </nav>
+      <div class="tab-bar" role="tablist" aria-label="功能">
+        <button
+          class="tab active"
+          id="tab-input"
+          role="tab"
+          aria-selected="true"
+          aria-controls="page-input"
+          data-tab="input"
+        >
+          ✏️ 登記
+        </button>
+        <button
+          class="tab"
+          id="tab-report"
+          role="tab"
+          aria-selected="false"
+          aria-controls="page-report"
+          data-tab="report"
+          tabindex="-1"
+        >
+          📊 報表
+        </button>
+        <button
+          class="tab tab-mgmt"
+          id="tab-manage"
+          role="tab"
+          aria-selected="false"
+          aria-controls="page-manage"
+          data-tab="manage"
+          tabindex="-1"
+        >
+          🗂️ 班級管理
+        </button>
+        <button
+          class="tab"
+          id="tab-settings"
+          role="tab"
+          aria-selected="false"
+          aria-controls="page-settings"
+          data-tab="settings"
+          tabindex="-1"
+        >
+          ⚙️ 設定
+        </button>
       </div>
-      <div class="legend">
-        <div class="legend-item">
-          <div class="legend-dot" style="background:var(--submitted-soft);border:1.5px solid var(--submitted)">✅</div>已繳
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background:var(--late-soft);border:1.5px solid var(--late)">⏰</div>補交
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background:var(--missing-soft);border:1.5px solid var(--missing)">❌</div>缺交
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background:var(--exempt-soft);border:1.5px solid var(--exempt)">〇</div>免交
-        </div>
-      </div>
-    </div>
-
-    <!-- 等第說明 -->
-    <div class="card" id="grade-info-card" style="display:none">
-      <div class="card-title">📝 等第對應分數</div>
-      <div class="grade-grid">
-        <div class="grade-item"><span class="grade-badge">A+</span><span class="grade-score">100</span></div>
-        <div class="grade-item"><span class="grade-badge">A</span><span class="grade-score">95</span></div>
-        <div class="grade-item"><span class="grade-badge">A-</span><span class="grade-score">90</span></div>
-        <div class="grade-item"><span class="grade-badge">B+</span><span class="grade-score">85</span></div>
-        <div class="grade-item"><span class="grade-badge">B</span><span class="grade-score">80</span></div>
-        <div class="grade-item"><span class="grade-badge">B-</span><span class="grade-score">75</span></div>
-        <div class="grade-item"><span class="grade-badge">C+</span><span class="grade-score">70</span></div>
-        <div class="grade-item"><span class="grade-badge">C</span><span class="grade-score">65</span></div>
-        <div class="grade-item"><span class="grade-badge">C-</span><span class="grade-score">60</span></div>
-        <div class="grade-item"><span class="grade-badge">D+</span><span class="grade-score">55</span></div>
-        <div class="grade-item"><span class="grade-badge">D</span><span class="grade-score">50</span></div>
-        <div class="grade-item"><span class="grade-badge">D-</span><span class="grade-score">45</span></div>
-        <div class="grade-item"><span class="grade-badge">E</span><span class="grade-score">40</span></div>
-      </div>
-    </div>
-
-    <!-- 學生名單 -->
-    <div class="card" id="student-card" style="display:none">
-      <div class="card-title">👥 學生名單</div>
-      
-      <!-- 批次操作 -->
-      <div class="batch-row">
-        <button class="batch-btn submitted" onclick="batchSet('submitted')">✅ 全部已繳</button>
-        <button class="batch-btn missing" onclick="batchSet('missing')">❌ 全部缺交</button>
-        <button class="batch-btn clear" onclick="batchSet('')">✖ 全部清除</button>
-      </div>
-      
-      <!-- 學生列表 -->
-      <div class="student-list" id="student-list"></div>
-      
-      <!-- 操作按鈕 -->
-      <div class="action-row">
-        <button class="btn btn-outline" onclick="clearAll()">🗑 清除</button>
-        <button class="btn btn-primary" onclick="submitData()">☁ 送出儲存</button>
-      </div>
-    </div>
-
-    <!-- 空狀態 -->
-    <div class="empty-state" id="empty-state">
-      <div class="empty-icon">📋</div>
-      <p>請先至「班級管理」建立班級與名冊<br>再回此頁選擇作業開始登記</p>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════
-       頁面：報表
-  ══════════════════════════════ -->
-  <div class="page" id="page-report">
-    <!-- 報表模式切換 -->
-    <div class="mode-switch">
-      <button id="report-mode-single" class="btn btn-primary" onclick="setReportMode('single')">📄 單元報表</button>
-      <button id="report-mode-overview" class="btn btn-outline" onclick="setReportMode('overview')">📊 全班總覽</button>
-    </div>
-
-    <!-- 單元報表面板 -->
-    <div id="report-panel-single">
-      <div class="card">
-        <div class="card-title">🔍 選擇要查看的作業</div>
-        
-        <div class="field">
-          <label>學年度</label>
-          <div class="select-wrap">
-            <select id="r-sel-year" onchange="rOnYearChange()">
-              <option value="">— 請選擇學年度 —</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="field">
-          <label>班級</label>
-          <div class="select-wrap">
-            <select id="r-sel-class" onchange="rOnClassChange()">
-              <option value="">— 請先選學年度 —</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="field">
-          <label>科目</label>
-          <div class="select-wrap">
-            <select id="r-sel-subject" onchange="rOnSubjectChange()">
-              <option value="">— 請先選班級 —</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="field">
-          <label>單元 / 作業</label>
-          <div class="select-wrap">
-            <select id="r-sel-unit">
-              <option value="">— 請先選科目 —</option>
-            </select>
-          </div>
-        </div>
-        
-        <button class="btn btn-secondary" style="width:100%;margin-top:4px" onclick="generateReport()">📊 生成報表</button>
-      </div>
-
-      <!-- 報表輸出 -->
-      <div id="report-output" class="report-output">
-        <div class="report-header">
-          <div class="school-name">作業繳交狀況報告</div>
-          <div class="report-title" id="r-title">—</div>
-          <div class="report-meta" id="r-meta"></div>
-        </div>
-        <div class="report-stats-row">
-          <div class="report-stat">
-            <div class="stat-num c-submitted" id="r-count-submitted">0</div>
-            <div class="stat-label">✅ 已繳</div>
-          </div>
-          <div class="report-stat">
-            <div class="stat-num c-late" id="r-count-late">0</div>
-            <div class="stat-label">⏰ 補交</div>
-          </div>
-          <div class="report-stat">
-            <div class="stat-num c-missing" id="r-count-missing">0</div>
-            <div class="stat-label">❌ 缺交</div>
-          </div>
-          <div class="report-stat">
-            <div class="stat-num" id="r-count-total" style="color:var(--ink)">0</div>
-            <div class="stat-label">總人數</div>
-          </div>
-        </div>
-        <div id="r-missing-section">
-          <div class="report-section-title">❌ 缺交名單</div>
-          <div class="report-student-grid" id="r-missing-list"></div>
-        </div>
-        <div id="r-late-section">
-          <div class="report-section-title">⏰ 補交名單</div>
-          <div class="report-student-grid" id="r-late-list"></div>
-        </div>
-        <div id="r-submitted-section">
-          <div class="report-section-title">✅ 已繳名單</div>
-          <div class="report-student-grid" id="r-submitted-list"></div>
-        </div>
-        <div class="report-footer">
-          <span id="r-footer-left">繳交率 —</span>
-          <span>作業登記系統</span>
-        </div>
-      </div>
-
-      <!-- 下載區 -->
-      <div class="download-section" id="download-section">
-        <div class="download-tip">
-          📱 <div>下載圖片後，開啟 Line → 群組 → 點擊「+」→「相片」即可分享</div>
-        </div>
-        <div class="action-row" style="flex-wrap:wrap;gap:8px">
-          <button class="btn btn-outline" onclick="copyReportText()" style="flex:1;min-width:120px">📋 複製文字</button>
-          <button class="btn btn-outline" onclick="downloadPDF()" style="flex:1;min-width:120px">📄 下載 PDF</button>
-          <button class="btn btn-green" onclick="downloadImage()" style="flex:2;min-width:160px">🖼 下載圖片</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 全班總覽面板 -->
-    <div id="report-panel-overview" style="display:none">
-      <div class="card">
-        <div class="card-title">📊 全班繳交總覽</div>
-        
-        <div class="field">
-          <label>學年度</label>
-          <div class="select-wrap">
-            <select id="ov-sel-year" onchange="ovOnYearChange()">
-              <option value="">— 請選擇學年度 —</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="field">
-          <label>班級</label>
-          <div class="select-wrap">
-            <select id="ov-sel-class" onchange="ovOnClassChange()">
-              <option value="">— 請先選學年度 —</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="field">
-          <label>科目</label>
-          <div class="select-wrap">
-            <select id="ov-sel-subject">
-              <option value="">— 請先選班級 —</option>
-            </select>
-          </div>
-        </div>
-        
-        <button class="btn btn-secondary" style="width:100%;margin-top:4px" onclick="generateOverview()">📊 載入總覽</button>
-      </div>
-      
-      <div id="overview-output" style="display:none">
-        <div class="card" style="padding:0;overflow:hidden">
-          <div id="overview-table-wrap" style="overflow-x:auto"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════
-       頁面：班級管理
-  ══════════════════════════════ -->
-  <div class="page" id="page-manage">
-    <!-- 步驟指示器 -->
-    <div class="steps">
-      <div class="step">
-        <div class="step-num done" id="step1-num">1</div>
-        <div class="step-label active" id="step1-label">建立班級</div>
-      </div>
-      <div class="step-line" id="step-line-1"></div>
-      <div class="step">
-        <div class="step-num" id="step2-num">2</div>
-        <div class="step-label" id="step2-label">上傳名冊</div>
-      </div>
-      <div class="step-line" id="step-line-2"></div>
-      <div class="step">
-        <div class="step-num" id="step3-num">3</div>
-        <div class="step-label" id="step3-label">確認完成</div>
-      </div>
-    </div>
-
-    <!-- 學年度管理 -->
-    <div class="card">
-      <div class="card-title purple" style="justify-content:space-between">
-        <span>📅 學年度管理</span>
-        <button class="btn btn-purple btn-sm" onclick="toggleYearForm()">＋ 新增學年度</button>
-      </div>
-      
-      <!-- 新增學年度表單 -->
-      <div class="add-form" id="add-year-form">
-        <div class="form-row">
-          <input type="text" id="new-year-input" placeholder="例：115、116" maxlength="4">
-          <button class="btn btn-purple btn-sm" onclick="addYear()">新增</button>
-          <button class="btn btn-outline btn-sm" onclick="toggleYearForm()">取消</button>
-        </div>
-      </div>
-      
-      <!-- 學年度列表 -->
-      <div class="year-list" id="year-list"></div>
-    </div>
-
-    <!-- 班級管理 -->
-    <div class="card">
-      <div class="card-title purple" style="justify-content:space-between">
-        <span>🗂️ 班級列表</span>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" style="color:var(--mgmt);border-color:var(--mgmt)" onclick="openModal('csv-guide-modal')">❓ 名冊格式</button>
-          <button class="btn btn-purple btn-sm" onclick="toggleClassForm()">＋ 新增班級</button>
-        </div>
-      </div>
-
-      <!-- 新增班級表單 -->
-      <div class="add-form" id="add-class-form">
-        <div class="field">
-          <label>班級名稱</label>
-          <input type="text" id="new-class-name" placeholder="例：汽車一、汽車二">
-        </div>
-        <div class="field">
-          <label>科目（可新增多個）</label>
-          <div class="form-row">
-            <input type="text" id="new-subject-input" placeholder="輸入科目名稱" style="flex:1">
-            <button class="btn btn-purple btn-sm" onclick="addSubjectTag()">新增</button>
-          </div>
-          <div class="tag-list" id="new-subject-tags"></div>
-        </div>
-        <div class="action-row" style="margin-top:4px">
-          <button class="btn btn-outline" onclick="toggleClassForm()">取消</button>
-          <button class="btn btn-purple" onclick="saveNewClass()">✓ 建立班級</button>
-        </div>
-      </div>
-
-      <!-- 班級卡片 -->
-      <div class="class-grid" id="class-grid">
-        <div class="no-class-state">
-          <div class="icon">🏫</div>
-          <p>尚未建立任何班級<br>點擊上方「＋ 新增班級」開始</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- 已選班級的學生名冊管理 -->
-    <div id="roster-section" style="display:none">
-      <div class="card">
-        <div class="card-title purple" style="justify-content:space-between">
-          <span>👥 <span id="roster-class-name">—</span> 學生名冊</span>
-          <span class="badge badge-purple" id="roster-count">0 人</span>
-        </div>
-
-        <!-- CSV 上傳說明 -->
-        <div class="format-guide">
-          <div class="format-guide-title">📄 CSV 欄位格式</div>
-          <div class="format-visual">
-            <div class="format-box" style="border-color:var(--mgmt)">
-              <div class="format-box-label" style="color:var(--mgmt)">欄位 A</div>
-              <div class="format-box-value">座號</div>
-              <div class="format-box-sub">01、02…</div>
-            </div>
-            <div class="format-arrow">→</div>
-            <div class="format-box" style="border-color:var(--accent-2)">
-              <div class="format-box-label" style="color:var(--accent-2)">欄位 B</div>
-              <div class="format-box-value">姓名</div>
-              <div class="format-box-sub">王小明…</div>
-            </div>
-          </div>
-          
-          <div class="format-example">
-            <div class="example-header">
-              <div>座號</div>
-              <div>姓名</div>
-            </div>
-            <div class="example-row">
-              <div>01</div>
-              <div>王小明</div>
-            </div>
-            <div class="example-row">
-              <div>02</div>
-              <div>李小華</div>
-            </div>
-          </div>
-          
-          <div class="format-tips">
-            <div>💡 第一列必須是標題（座號、姓名），系統會自動略過</div>
-            <div>💡 Excel 請點「另存新檔」→ 選「CSV UTF-8（逗號分隔）」</div>
-            <div>✅ 系統會自動辨識欄位，欄位名稱打「學號」也可以</div>
-          </div>
-        </div>
-
-        <!-- 拖曳上傳區 -->
-        <div class="upload-zone" id="upload-zone"
-             onclick="document.getElementById('csv-file-input').click()"
-             ondragover="onDragOver(event)"
-             ondragleave="onDragLeave(event)"
-             ondrop="onDrop(event)">
-          <input type="file" id="csv-file-input" accept=".csv" onchange="handleCSV(event)">
-          <div class="upload-icon">📂</div>
-          <div class="upload-title">點擊選取 CSV 檔案</div>
-          <div class="upload-sub">或將 .csv 檔案拖曳到此區域</div>
-        </div>
-
-        <!-- 預覽 -->
-        <div id="csv-preview" style="display:none">
-          <hr class="divider">
-          <div class="preview-title">📋 預覽（前 5 筆）</div>
-          <div class="preview-table-wrap">
-            <table class="preview-table" id="preview-table">
-              <thead><tr><th>座號</th><th>姓名</th></tr></thead>
-              <tbody id="preview-tbody"></tbody>
-            </table>
-          </div>
-          <div class="preview-count" id="preview-count"></div>
-          <div class="action-row" style="margin-top:12px">
-            <button class="btn btn-outline" onclick="cancelCSV()">✖ 取消</button>
-            <button class="btn btn-purple" onclick="confirmCSV()">✅ 確認匯入</button>
-          </div>
-        </div>
-
-        <!-- 已匯入名單 -->
-        <div id="current-roster" style="display:none">
-          <hr class="divider">
-          <div class="roster-header">
-            <div class="roster-title">目前名冊</div>
-            <button class="btn btn-outline btn-sm" onclick="reupload()">🔄 重新上傳</button>
-          </div>
-          <div id="roster-list"></div>
-        </div>
-      </div>
-
-      <!-- 科目與單元管理 -->
-      <div class="card">
-        <div class="card-title purple">📚 科目與單元管理</div>
-        <div id="subject-unit-manager"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════
-       頁面：設定
-  ══════════════════════════════ -->
-  <div class="page" id="page-settings">
-    <div class="card">
-      <div class="card-title">⚙️ 系統設定</div>
-      
-      <!-- 資料來源 -->
-      <div class="settings-group">
-        <div class="settings-group-title">資料來源</div>
-        <div class="field">
-          <label>Google Apps Script 網址</label>
-          <input type="text" id="gas-url" placeholder="https://script.google.com/macros/s/...">
-        </div>
-        <div class="form-row">
-          <button class="btn btn-purple" style="flex:1" onclick="saveGasUrl()">☁ 儲存並測試連線</button>
-          <button class="btn btn-outline btn-sm" onclick="testGasConnection()" style="flex:none;padding:10px 14px">🔄 重新測試</button>
-        </div>
-        <button class="btn btn-outline" style="width:100%;margin-top:8px;color:var(--ink-soft)" onclick="openGasGuide()">📖 查看 GAS 完整設置說明</button>
-        <div id="gas-status" class="status-message" style="display:none"></div>
-      </div>
-
-      <!-- 安全驗證 -->
-      <div class="settings-group">
-        <div class="settings-group-title">安全驗證</div>
-        <div class="field">
-          <label>API Token <span style="font-weight:400;color:var(--exempt);font-size:11px">（需與 GAS 端設定一致）</span></label>
-          <input type="text" id="gas-token" placeholder="自訂一組驗證金鑰，例如：mytoken2025">
-        </div>
-        <button class="btn btn-outline" style="width:100%" onclick="saveGasToken()">🔑 儲存 Token</button>
-        <div class="settings-tip">
-          ⚠️ 設定後請同步更新 GAS 程式碼中的 TOKEN 常數，否則所有請求將被拒絕。
-        </div>
-      </div>
-
-      <!-- 安全性 -->
-      <div class="settings-group">
-        <div class="settings-group-title">安全性</div>
-        <div class="field">
-          <label>更改登入密碼</label>
-          <input type="text" id="new-password" placeholder="輸入新密碼（4-8 位）">
-        </div>
-        <button class="btn btn-outline" style="width:100%" onclick="savePassword()">🔒 更新密碼</button>
-      </div>
-
-      <!-- 功能 -->
-      <div class="settings-group">
-        <div class="settings-group-title">功能</div>
-        <div class="setting-row">
-          <div>
-            <div class="setting-row-label">瀏覽器暫存</div>
-            <div class="setting-row-sub">防止誤關時資料遺失</div>
-          </div>
-          <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-        </div>
-        <div class="setting-row">
-          <div>
-            <div class="setting-row-label">自動載入舊紀錄</div>
-            <div class="setting-row-sub">開啟相同單元時自動填入</div>
-          </div>
-          <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-        </div>
-      </div>
-
-      <!-- 資料管理 -->
-      <div class="settings-group">
-        <div class="settings-group-title">資料管理</div>
-        <button class="btn btn-secondary" style="width:100%;margin-bottom:8px" onclick="syncAllFromCloud()">☁ 從雲端重新同步所有資料</button>
-        <button class="btn btn-danger" style="width:100%" onclick="clearAllData()">🗑 清除所有本機資料</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════
-       對話框
-  ══════════════════════════════ -->
-  
-  <!-- 編輯班級 -->
-  <div class="modal-backdrop" id="edit-modal">
-    <div class="modal">
-      <div class="modal-title">✏️ 編輯班級</div>
-      <input type="hidden" id="edit-class-id">
-      <div class="field">
-        <label>班級名稱</label>
-        <input type="text" id="edit-class-name">
-      </div>
-      <div class="field">
-        <label>科目（點 × 刪除）</label>
-        <div class="form-row" style="margin-bottom:8px">
-          <input type="text" id="edit-subject-input" placeholder="新增科目" style="flex:1">
-          <button class="btn btn-purple btn-sm" onclick="addEditSubjectTag()">新增</button>
-        </div>
-        <div class="tag-list" id="edit-subject-tags"></div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-outline" onclick="closeModal('edit-modal')">取消</button>
-        <button class="btn btn-purple" onclick="saveEditClass()">儲存</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 確認刪除班級 -->
-  <div class="modal-backdrop" id="delete-modal">
-    <div class="modal" style="max-width:420px">
-      <div class="modal-title" style="color:var(--missing)">🗑 刪除班級</div>
-      <div class="delete-info">
-        <div class="delete-info-name" id="delete-class-name-display">—</div>
-        <div class="delete-info-meta">
-          <span>📚 <span id="del-cls-sub-count">—</span> 個科目</span>
-          <span>👥 <span id="del-cls-stu-count">—</span> 位學生</span>
-        </div>
-      </div>
-      <div class="delete-warn">
-        <div class="delete-warn-title">刪除後將一併移除：</div>
-        <div class="delete-warn-list">
-          ❌ 所有科目與單元設定<br>
-          ❌ 學生名冊<br>
-          ❌ 所有作業登記紀錄
-        </div>
-      </div>
-      <p class="delete-note">此操作無法復原，請確認後再繼續。</p>
-      <input type="hidden" id="delete-class-id">
-      <div class="modal-actions">
-        <button class="btn btn-outline" style="flex:1" onclick="closeModal('delete-modal')">取消，保留班級</button>
-        <button class="btn btn-danger" style="flex:1" onclick="confirmDelete()">確認刪除</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- CSV 格式說明 -->
-  <div class="modal-backdrop" id="csv-guide-modal">
-    <div class="modal" style="max-width:520px">
-      <div class="modal-title" style="color:var(--mgmt)">📋 學生名冊 CSV 格式說明</div>
-      <!-- 內容與之前相同 -->
-      <button class="btn btn-purple" style="width:100%" onclick="closeModal('csv-guide-modal')">了解了，關閉說明</button>
-    </div>
-  </div>
-
-  <!-- 刪除科目確認 -->
-  <div class="modal-backdrop" id="delete-subject-modal">
-    <div class="modal" style="max-width:400px">
-      <div class="modal-title" style="color:var(--missing)">⚠️ 刪除科目</div>
-      <div class="delete-info">
-        <div class="delete-info-name" id="del-sub-name">—</div>
-        <div id="del-sub-unit-count"></div>
-      </div>
-      <p class="delete-desc">
-        確定要刪除此科目嗎？<br>
-        <span style="color:var(--missing);font-weight:700">科目底下的所有單元也會一併刪除，且無法復原。</span>
+      <p id="connection-status" class="connection-status" role="status">
+        請先至設定連接測試用資料來源。
       </p>
-      <div class="modal-actions">
-        <button class="btn btn-outline" style="flex:1" onclick="closeModal('delete-subject-modal')">取消</button>
-        <button class="btn btn-danger" style="flex:1" onclick="confirmDeleteSubject()">確認刪除</button>
-      </div>
+      <p id="persistent-error" class="persistent-error" role="alert" hidden></p>
+      <main>
+        <section
+          class="page active"
+          id="page-input"
+          role="tabpanel"
+          aria-labelledby="tab-input"
+        >
+          <div class="card">
+            <h2>選擇班級與作業</h2>
+            <div class="selector-grid" id="input-selectors"></div>
+          </div>
+          <div id="input-empty" class="empty-state">
+            先選擇學年度、班級、科目與作業。尚無資料時，請至班級管理建立。
+          </div>
+          <div id="assignment-panel" hidden>
+            <div class="card">
+              <h2 id="assignment-title"></h2>
+              <div class="field">
+                <label for="hw-date">登記日期</label
+                ><input id="hw-date" type="date" />
+              </div>
+              <p id="draft-status" role="status"></p>
+              <div class="action-row">
+                <button id="reload-assignment" class="btn btn-outline">
+                  重新載入雲端</button
+                ><button id="export-draft" class="btn btn-outline">
+                  匯出這份草稿</button
+                ><button id="discard-draft" class="btn btn-outline">
+                  放棄本機草稿
+                </button>
+              </div>
+              <div class="progress-labels">
+                <span id="progress-label"></span>
+              </div>
+              <progress id="progress" value="0" max="100"></progress>
+            </div>
+            <details class="card">
+              <summary>等第對應分數（13 級）</summary>
+              <p id="grade-guide"></p>
+              <p>未評分與零分不同；免交不列入應繳人數。</p>
+            </details>
+            <div class="card">
+              <div class="batch-row">
+                <button class="batch-btn submitted" data-batch="submitted">
+                  全部已繳</button
+                ><button class="batch-btn missing" data-batch="missing">
+                  全部缺交</button
+                ><button class="batch-btn clear" data-batch="">全部清除</button>
+              </div>
+              <div id="student-list" class="student-list"></div>
+              <div class="save-bar">
+                <span id="save-hint">變更先保留於本機，送出後才寫入雲端。</span
+                ><button id="save-assignment" class="btn btn-primary">
+                  送出儲存
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="page"
+          id="page-report"
+          role="tabpanel"
+          aria-labelledby="tab-report"
+          hidden
+        >
+          <div class="card">
+            <h2>作業報表</h2>
+            <div id="report-selectors" class="selector-grid"></div>
+            <div class="action-row">
+              <button id="single-report" class="btn btn-primary">
+                生成單元報表</button
+              ><button id="overview-report" class="btn btn-outline">
+                載入全班總覽
+              </button>
+            </div>
+            <p>報表使用雲端已儲存資料；請先送出尚未同步的登記。</p>
+          </div>
+          <article id="report-output" class="report-output" hidden></article>
+          <div id="report-actions" class="action-row" hidden>
+            <button id="copy-report" class="btn btn-outline">複製文字</button
+            ><button id="print-report" class="btn btn-outline">
+              列印／另存 PDF</button
+            ><button id="image-report" class="btn btn-green">下載圖片</button>
+          </div>
+        </section>
+        <section
+          class="page"
+          id="page-manage"
+          role="tabpanel"
+          aria-labelledby="tab-manage"
+          hidden
+        >
+          <div class="card">
+            <h2>學年度與班級</h2>
+            <div class="field">
+              <label for="manage-year">學年度</label
+              ><select id="manage-year"></select>
+            </div>
+            <div class="action-row">
+              <button id="add-year" class="btn btn-purple">新增學年度</button
+              ><button id="delete-year" class="btn btn-danger">
+                刪除所選學年度
+              </button>
+            </div>
+            <div class="field">
+              <label for="new-class">新班級名稱</label
+              ><input
+                id="new-class"
+                maxlength="80"
+                placeholder="例如：班級 A"
+              />
+            </div>
+            <div class="field">
+              <label for="new-subjects">初始科目（每行一個，可留空）</label
+              ><textarea id="new-subjects" rows="2"></textarea>
+            </div>
+            <button id="add-class" class="btn btn-purple">建立班級</button>
+            <div id="class-grid" class="class-grid"></div>
+          </div>
+          <div id="manage-detail" hidden>
+            <div class="card">
+              <h2 id="manage-title"></h2>
+              <div class="action-row">
+                <button id="rename-class" class="btn btn-outline">
+                  編輯班級名稱</button
+                ><button id="delete-class" class="btn btn-danger">
+                  刪除此班級
+                </button>
+              </div>
+              <h3>學生名冊</h3>
+              <p>
+                請使用座號與學生代稱，避免上傳真實姓名。CSV
+                標題為「座號,代稱」；欄位順序可交換。
+              </p>
+              <label for="csv-file">選擇 UTF-8 CSV（最多 200 人、1 MB）</label
+              ><input id="csv-file" type="file" accept=".csv,text/csv" />
+              <div id="csv-preview" hidden>
+                <p id="csv-preview-title"></p>
+                <div class="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>座號</th>
+                        <th>代稱</th>
+                      </tr>
+                    </thead>
+                    <tbody id="csv-preview-body"></tbody>
+                  </table>
+                </div>
+                <p>
+                  匯入將取代此班名冊。有歷史紀錄時，原座號不能移除或改派給其他學生。
+                </p>
+                <div class="action-row">
+                  <button id="confirm-csv" class="btn btn-purple">
+                    確認匯入</button
+                  ><button id="cancel-csv" class="btn btn-outline">取消</button>
+                </div>
+              </div>
+              <div id="roster-list"></div>
+            </div>
+            <div class="card">
+              <h3>科目與作業</h3>
+              <button id="add-subject" class="btn btn-purple">新增科目</button>
+              <div id="subject-list"></div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="page"
+          id="page-settings"
+          role="tabpanel"
+          aria-labelledby="tab-settings"
+          hidden
+        >
+          <div class="card">
+            <h2>資料來源</h2>
+            <p>初次設定請使用獨立測試試算表；前端與 GAS 需一起更新至 3.1。</p>
+            <div class="field">
+              <label for="gas-url">Google Apps Script 部署網址</label
+              ><input
+                id="gas-url"
+                type="url"
+                autocomplete="off"
+                placeholder="https://script.google.com/macros/s/…/exec"
+              />
+            </div>
+            <div class="field">
+              <label for="gas-token">API Token</label
+              ><input
+                id="gas-token"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+            <p>
+              Token
+              僅保留於本次分頁；關閉分頁後需重新輸入。草稿依資料來源分開保存。
+            </p>
+            <button id="connect" class="btn btn-purple">
+              儲存設定並測試連線</button
+            ><a
+              href="docs/GAS_SETUP.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              >開啟完整設定指南</a
+            >
+          </div>
+          <div class="card">
+            <h2>本機密碼</h2>
+            <p>這是共用電腦上的畫面鎖，不代表 Google 帳號登入或加密。</p>
+            <div class="field">
+              <label for="old-password">目前密碼</label
+              ><input
+                id="old-password"
+                type="password"
+                autocomplete="current-password"
+              />
+            </div>
+            <div class="field">
+              <label for="new-password">新密碼（4–64 字元）</label
+              ><input
+                id="new-password"
+                type="password"
+                minlength="4"
+                maxlength="64"
+                autocomplete="new-password"
+              />
+            </div>
+            <button id="change-password" class="btn btn-outline">
+              更新本機密碼
+            </button>
+          </div>
+          <div class="card">
+            <h2>資料與備份</h2>
+            <p>
+              登記自動保留本機草稿；雲端修改前也會留下伺服器備份。離線時可編輯已快取的作業，需恢復連線才能送出。
+            </p>
+            <div class="action-row">
+              <button id="refresh-catalog" class="btn btn-outline">
+                重新整理雲端清單</button
+              ><button id="export-cloud" class="btn btn-outline">
+                匯出雲端 JSON 備份</button
+              ><button id="export-local" class="btn btn-outline">
+                匯出所有本機草稿
+              </button>
+            </div>
+            <button id="clear-local" class="btn btn-danger">
+              清除此版本的本機資料
+            </button>
+          </div>
+        </section>
+      </main>
     </div>
-  </div>
-
-  <!-- 版本紀錄 -->
-  <div class="modal-backdrop" id="version-modal">
-    <div class="modal" style="max-width:440px">
-      <div class="modal-title" style="color:var(--mgmt)">📋 版本紀錄</div>
-      <div class="version-list">
-        <div class="version-item current">
-          <div class="version-header">
-            <span class="version-num">v3.0</span>
-            <span class="version-badge">目前版本</span>
-          </div>
-          <div class="version-changes">
-            ✨ 新增成績登錄功能（A+ ~ E 等第）<br>
-            ✨ 新增學年度管理<br>
-            ✨ 全新 UI 設計<br>
-            ✨ GAS API 全面重寫
-          </div>
-        </div>
-        <div class="version-item">
-          <div class="version-header">
-            <span class="version-num">v2.7</span>
-          </div>
-          <div class="version-changes">
-            📊 報表功能優化<br>
-            🐛 修正已知問題
-          </div>
-        </div>
-      </div>
-      <button class="btn btn-purple" style="width:100%" onclick="closeModal('version-modal')">關閉</button>
+    <div
+      id="loading-overlay"
+      class="loading-overlay"
+      role="status"
+      aria-live="polite"
+      hidden
+    >
+      <div class="loading-box"><p id="loading-msg">處理中…</p></div>
     </div>
-  </div>
-
-  <!-- Toast 通知 -->
-  <div id="toast" class="toast"></div>
-
-  <!-- 外部腳本 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="js/app.js"></script>
-</body>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
 </html>

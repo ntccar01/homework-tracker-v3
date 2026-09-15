@@ -1,59 +1,30 @@
-# Google Sheet 設定指南
+# 3.1 試算表結構
 
-## 步驟 1：建立新的 Google Sheet
+請先建立獨立測試試算表，共用維持「限制」。填入 GAS 的 SPREADSHEET_ID 後，手動執行 setupDatabase 自動建立下列工作表，不必先填虛構学生或空作業來表示班級存在。
 
-1. 前往 [Google Sheets](https://sheets.google.com)
-2. 點擊「+ 建立新試算表」
-3. 將試算表命名為：**作業登記系統 v3.0**
-4. 記下試算表 URL 中的 ID（`/d/[SHEET_ID]/edit`）
+| 工作表      | 依序欄位                                                             | 唯一性           |
+| ----------- | -------------------------------------------------------------------- | ---------------- |
+| years       | year                                                                 | 年度             |
+| classes     | year, class_name                                                     | 年度＋班級       |
+| subjects    | year, class_name, subject                                            | 年度＋班級＋科目 |
+| students    | year, class_name, seat_num, name                                     | 年度＋班級＋座號 |
+| assignments | assignment_id, year, class_name, subject, unit                       | assignment_id    |
+| records     | assignment_id, year, class_name, seat_num, status, score, note, date | 作業ID＋座號     |
+| \_backups   | backup_id, created_at, action, part, json                            | 備份ID＋分段序號 |
 
-## 步驟 2：建立工作表
+year、ID 與座號於 API 邊界統一為字串；座號1～999，個位數補零。status 是空字串／submitted／late／missing／exempt。score 是0～100或空值；缺交為0、免交與未登記為空值。「免交」不能當數字。date 為 YYYY-MM-DD 或空值。
 
-建立以下 3 個工作表（按底部的 + 號）：
+表格應是純資料。標題不可更名，不能加入未知欄位或公式；另開工作表做分析，不直接改應用資料表。學生name欄填「代稱」，例如學生A；CSV範例：
 
-### 工作表 1：`students`（學生名單）
+```csv
+座號,代稱
+01,學生A
+02,學生B
+03,學生C
+```
 
-| A | B | C | D |
-|---|---|---|---|
-| **year** | **class_name** | **seat_num** | **name** |
-| 115 | 汽車一 | 01 | 王小明 |
-| 115 | 汽車一 | 02 | 李小華 |
-| 115 | 汽車二 | 01 | 張大偉 |
+CSV 支援欄位順序交換與標準引號，但不會把學號自動當座號。每班最多200人；檔案最多1MB；請先轉為UTF-8。
 
-### 工作表 2：`assignments`（作業定義）
+V3.0 既有三表也必須先完整複製後才執行初始化。records 增加第8欄date；舊表未保存日期，因此遷移後保持空白。已有歷史分數的班級不允許匯入時把原座號移除／換給另一人；請建立新班級，或使用明確刪除（會連同相關紀錄移除並備份）的流程。
 
-| A | B | C | D | E |
-|---|---|---|---|---|
-| **assignment_id** | **year** | **class_name** | **subject** | **unit** |
-| 1725782400000 | 115 | 汽車一 | 汽車引擎 | 第一章 |
-| 1725782500000 | 115 | 汽車一 | 汽車電學 | 直流電路 |
-
-### 工作表 3：`records`（登記紀錄）
-
-| A | B | C | D | E | F | G |
-|---|---|---|---|---|---|---|
-| **assignment_id** | **year** | **class_name** | **seat_num** | **status** | **score** | **note** |
-| 1725782400000 | 115 | 汽車一 | 01 | submitted | 100 | |
-| 1725782400000 | 115 | 汽車一 | 02 | late | 85 | 補交 |
-| 1725782400000 | 115 | 汽車一 | 03 | missing | 0 | |
-| 1725782400000 | 115 | 汽車一 | 04 | exempt | 免交 | |
-
-## 步驟 3：設定欄位格式
-
-1. 選取所有欄位標題列（第 1 列）
-2. 設定粗體、背景色
-3. 凍結第 1 列：檢視 → 凍結 → 1 列
-
-## 步驟 4：命名範圍（選用）
-
-為了方便查詢，可建立命名範圍：
-1. 選取 students 工作表的 A:D 資料列
-2. 功能表：資料 → 命名範圍
-3. 命名為 `students_data`
-
-## 步驟 5：共用設定
-
-1. 點擊右上角「共用」
-2. 將「一般存取權」改為「限制」
-3. 新增您自己的 Google 帳號（編輯者權限）
-4. **不要**公開此試算表
+復原請看 [GAS設定與復原](GAS_SETUP.md)。本版以保守限制保護座號關聯，尚未建立跨班級穩定student_id。
