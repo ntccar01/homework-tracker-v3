@@ -661,6 +661,7 @@ function renderManage() {
     }),
   );
   $("manage-detail").hidden = !state.manageClass;
+  $("rename-year").disabled = !state.manageYear;
   $("delete-year").disabled = !state.manageYear;
   if (!state.manageClass) return;
   $("manage-title").textContent =
@@ -686,6 +687,7 @@ function renderManage() {
         header = node("div", null, "action-row");
       header.append(
         node("h4", s.subject),
+        button("編輯科目", "rename-subject", { subject: s.subject }),
         button("刪除科目", "delete-subject", { subject: s.subject }),
       );
       card.append(header);
@@ -695,6 +697,11 @@ function renderManage() {
           const row = node("div", null, "action-row");
           row.append(
             node("span", a.unit),
+            button("編輯作業", "rename-unit", {
+              assignmentId: a.assignment_id,
+              subject: s.subject,
+              unit: a.unit,
+            }),
             button("刪除作業", "delete-unit", {
               assignmentId: a.assignment_id,
               unit: a.unit,
@@ -721,6 +728,7 @@ async function manage(operation, extra = {}) {
   state.catalog = result.catalog;
   write(sourceKey("catalog"), result.catalog);
   if (operation === "renameClass") state.manageClass = extra.new_name;
+  if (operation === "renameYear") state.manageYear = extra.new_name;
   cancelCSV();
   renderManage();
   ["input", "report"].forEach(populate);
@@ -1049,6 +1057,31 @@ function boot() {
         const unit = ask("作業名稱");
         if (unit) await manage("addUnit", { subject: d.subject, unit });
       }
+      if (d.action === "rename-unit") {
+        const name = ask("新作業名稱", d.unit);
+        if (
+          name &&
+          name !== d.unit &&
+          confirm("修改作業名稱後，既有成績與繳交狀態會保留。繼續？")
+        )
+          await manage("renameUnit", {
+            assignment_id: d.assignmentId,
+            subject: d.subject,
+            new_name: name,
+          });
+      }
+      if (d.action === "rename-subject") {
+        const name = ask("新科目名稱", d.subject);
+        if (
+          name &&
+          name !== d.subject &&
+          confirm("修改科目名稱後，所屬作業與報表名稱會同步更新。繼續？")
+        )
+          await manage("renameSubject", {
+            subject: d.subject,
+            new_name: name,
+          });
+      }
       if (d.action === "delete-unit" && confirmDelete(d.unit))
         await manage("deleteUnit", { assignment_id: d.assignmentId });
       if (
@@ -1070,6 +1103,15 @@ function boot() {
       state.manageYear = year;
       renderManage();
     }
+  });
+  bind("rename-year", async () => {
+    const name = ask("新學年度，例如 116", state.manageYear);
+    if (
+      name &&
+      name !== state.manageYear &&
+      confirm("修改學年度會同步更新此學年度的班級、名冊、作業與歷史紀錄。繼續？")
+    )
+      await manage("renameYear", { new_name: name });
   });
   bind("delete-year", async () => {
     if (
@@ -1095,7 +1137,12 @@ function boot() {
   });
   bind("rename-class", async () => {
     const name = ask("新班級名稱", state.manageClass);
-    if (name) await manage("renameClass", { new_name: name });
+    if (
+      name &&
+      name !== state.manageClass &&
+      confirm("修改班級名稱後，名冊、作業與歷史紀錄會同步更新。繼續？")
+    )
+      await manage("renameClass", { new_name: name });
   });
   bind("delete-class", async () => {
     if (confirmDelete(state.manageClass + "班級及所有紀錄"))

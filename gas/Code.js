@@ -435,6 +435,14 @@ function requireClass(db, year, cls) {
   if (!db.classes.some((c) => c.year === year && c.class_name === cls))
     fail("NOT_FOUND", "班級不存在");
 }
+function requireSubject(db, year, cls, subject) {
+  if (
+    !db.subjects.some(
+      (s) => s.year === year && s.class_name === cls && s.subject === subject,
+    )
+  )
+    fail("NOT_FOUND", "科目不存在");
+}
 function manage(db, p) {
   if (!p.revision || p.revision !== digest(db))
     fail("CONFLICT", "資料已由其他操作更新，請重新整理後再試");
@@ -465,6 +473,21 @@ function manage(db, p) {
       );
       break;
     }
+    case "renameYear": {
+      const name = yearValue(p.new_name);
+      if (name !== year && next.years.some((y) => y.year === name))
+        fail("DUPLICATE", "新學年度已存在");
+      next.years.forEach((r) => {
+        if (r.year === year) r.year = name;
+      });
+      ["classes", "students", "subjects", "assignments", "records"].forEach(
+        (table) =>
+          next[table].forEach((r) => {
+            if (r.year === year) r.year = name;
+          }),
+      );
+      break;
+    }
     case "renameClass": {
       requireClass(next, year, cls);
       const name = text(p.new_name, "新班級名稱");
@@ -479,6 +502,28 @@ function manage(db, p) {
             if (r.year === year && r.class_name === cls) r.class_name = name;
           }),
       );
+      break;
+    }
+    case "renameSubject": {
+      requireClass(next, year, cls);
+      requireSubject(next, year, cls, subject);
+      const name = text(p.new_name, "新科目名稱");
+      if (
+        name !== subject &&
+        next.subjects.some(
+          (s) =>
+            s.year === year && s.class_name === cls && s.subject === name,
+        )
+      )
+        fail("DUPLICATE", "新科目名稱已存在");
+      next.subjects.forEach((s) => {
+        if (s.year === year && s.class_name === cls && s.subject === subject)
+          s.subject = name;
+      });
+      next.assignments.forEach((a) => {
+        if (a.year === year && a.class_name === cls && a.subject === subject)
+          a.subject = name;
+      });
       break;
     }
     case "addSubject":
@@ -519,6 +564,32 @@ function manage(db, p) {
         subject,
         unit,
       });
+      break;
+    }
+    case "renameUnit": {
+      requireClass(next, year, cls);
+      requireSubject(next, year, cls, subject);
+      const assignment = next.assignments.find(
+        (a) =>
+          a.assignment_id === String(p.assignment_id) &&
+          a.year === year &&
+          a.class_name === cls &&
+          a.subject === subject,
+      );
+      if (!assignment) fail("NOT_FOUND", "作業不屬於此科目");
+      const name = text(p.new_name, "新作業名稱");
+      if (
+        name !== assignment.unit &&
+        next.assignments.some(
+          (a) =>
+            a.year === year &&
+            a.class_name === cls &&
+            a.subject === subject &&
+            a.unit === name,
+        )
+      )
+        fail("DUPLICATE", "新作業名稱已存在");
+      assignment.unit = name;
       break;
     }
     case "importStudents": {

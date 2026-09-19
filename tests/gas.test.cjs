@@ -172,6 +172,67 @@ test("class rename cascades and individual student deletion removes records", ()
   );
   assert.equal(b.view().records.length, 2);
 });
+test("year, subject and unit renames cascade while preserving assignment records", () => {
+  const b = seeded();
+  const originalId = b.id;
+  assert.equal(b.save(rows()).success, true);
+  assert.equal(
+    b.manage("renameUnit", {
+      assignment_id: originalId,
+      subject: "Math",
+      new_name: "Unit A renamed",
+    }).success,
+    true,
+  );
+  assert.equal(b.view().assignment.unit, "Unit A renamed");
+  assert.equal(b.view().records[0].status, "submitted");
+  assert.equal(b.view().records[0].score, 100);
+
+  assert.equal(
+    b.manage("renameSubject", {
+      subject: "Math",
+      new_name: "Mathematics",
+    }).success,
+    true,
+  );
+  assert.equal(b.view().assignment.subject, "Mathematics");
+  assert.equal(
+    b.catalog().assignments.find((a) => a.assignment_id === originalId).subject,
+    "Mathematics",
+  );
+
+  assert.equal(b.manage("renameYear", { new_name: "116" }).success, true);
+  const view = b.view();
+  assert.equal(view.assignment.assignment_id, originalId);
+  assert.equal(view.assignment.year, "116");
+  assert.ok(view.records.every((r) => r.year === "116"));
+  assert.equal(view.records[0].score, 100);
+});
+test("name renames reject duplicates without changing data", () => {
+  const b = seeded();
+  assert.equal(b.manage("addSubject", { subject: "Science" }).success, true);
+  const before = b.snapshot();
+  assert.equal(
+    b.manage("renameSubject", {
+      subject: "Math",
+      new_name: "Science",
+    }).code,
+    "DUPLICATE",
+  );
+  assert.equal(
+    b.manage("renameUnit", {
+      assignment_id: b.id,
+      subject: "Math",
+      new_name: "Unit B",
+    }).code,
+    "DUPLICATE",
+  );
+  assert.equal(
+    b.manage("renameYear", { new_name: "115" }).success,
+    true,
+  );
+  assert.equal(b.snapshot(), before);
+});
 test("overview uses explicit IDs and complete assignment list", () => {
   const b = seeded();
   b.save(rows(), {

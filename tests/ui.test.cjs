@@ -100,6 +100,21 @@ test("page boots with semantic selectors, safe literal names and no missing hand
   assert.equal(u.$("app-shell").inert, false);
   assert.deepEqual(u.errors, []);
 });
+test("class management exposes year, subject and assignment rename controls", async (t) => {
+  const u = await ui();
+  t.after(u.close);
+  await u.select("manage-year", "115");
+  const classButton = u.$("class-grid").querySelector('[data-action="choose-class"]');
+  assert.ok(classButton);
+  classButton.click();
+  await settle();
+  assert.equal(u.$("rename-year").disabled, false);
+  assert.ok(
+    u.$("subject-list").querySelector('[data-action="rename-subject"]'),
+  );
+  assert.ok(u.$("subject-list").querySelector('[data-action="rename-unit"]'));
+  assert.equal(u.$("rename-class").disabled, false);
+});
 test("status clicks save drafts; submit and clear survive cloud reload", async (t) => {
   const u = await ui();
   t.after(u.close);
