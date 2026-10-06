@@ -410,12 +410,25 @@ function renderRow(student) {
   grade.dataset.seat = student.seat_num;
   grade.setAttribute("aria-label", student.seat_num + " 號等第");
   grade.add(new Option("未評分", ""));
-  Object.entries(C.grades).forEach(([g, score]) => grade.add(new Option(g, g)));
+  Object.entries(C.grades).forEach(([g, score]) => grade.add(new Option(g + "（" + score + "分）", g)));
   grade.value =
     Object.keys(C.grades).find((g) => C.grades[g] === rec.score) || "";
   grade.disabled = !["submitted", "late"].includes(rec.status);
+
+  const scoreInput = node("input", null, "score-input");
+  scoreInput.type = "number";
+  scoreInput.min = 0;
+  scoreInput.max = 100;
+  scoreInput.step = 1;
+  scoreInput.dataset.seat = student.seat_num;
+  scoreInput.setAttribute("aria-label", student.seat_num + " 號分數");
+  scoreInput.value = rec.score === "" ? "" : rec.score;
+  scoreInput.disabled = !["submitted", "late"].includes(rec.status);
+  scoreInput.placeholder = "0-100";
+
   row.append(
     grade,
+    scoreInput,
     node("div", rec.score === "" ? "—" : String(rec.score), "score-display"),
   );
   return row;
@@ -918,15 +931,38 @@ function boot() {
     changed();
   });
   $("student-list").addEventListener("change", (e) => {
-    if (!e.target.matches(".grade-select") || !state.active || state.busy)
+    if (!state.active || state.busy) return;
+
+    // 等第下拉選單變更
+    if (e.target.matches(".grade-select")) {
+      const rec = state.active.records[e.target.dataset.seat];
+      rec.score = e.target.value ? C.grades[e.target.value] : "";
+      const row = e.target.closest(".student-row");
+      row.querySelector(".score-display").textContent =
+        rec.score === "" ? "—" : String(rec.score);
+      row.querySelector(".score-input").value = rec.score === "" ? "" : rec.score;
+      changed();
       return;
-    const rec = state.active.records[e.target.dataset.seat];
-    rec.score = e.target.value ? C.grades[e.target.value] : "";
-    e.target
-      .closest(".student-row")
-      .querySelector(".score-display").textContent =
-      rec.score === "" ? "—" : String(rec.score);
-    changed();
+    }
+
+    // 數字輸入框變更
+    if (e.target.matches(".score-input")) {
+      const rec = state.active.records[e.target.dataset.seat];
+      const value = e.target.value === "" ? "" : Number(e.target.value);
+      if (value !== "" && (value < 0 || value > 100 || !Number.isInteger(value))) {
+        e.target.value = rec.score === "" ? "" : rec.score;
+        return;
+      }
+      rec.score = value;
+      const row = e.target.closest(".student-row");
+      row.querySelector(".score-display").textContent =
+        rec.score === "" ? "—" : String(rec.score);
+      // 若分數符合標準等第，自動選中對應等第
+      const gradeKey = Object.keys(C.grades).find((g) => C.grades[g] === rec.score) || "";
+      row.querySelector(".grade-select").value = gradeKey;
+      changed();
+      return;
+    }
   });
   $("hw-date").addEventListener("change", () => {
     if (state.active && !state.busy) {

@@ -341,6 +341,20 @@ textarea {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+.score-input {
+  width: 60px;
+  padding: 6px 8px;
+  font-size: 15px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.score-input:disabled {
+  background: #f5f5f5;
+  color: #999;
+}
 .save-bar {
   display: flex;
   align-items: center;
