@@ -797,9 +797,9 @@ async function connect() {
   write("url", url);
   write(sourceKey("catalog"), cat);
   try {
-    sessionStorage.setItem(PREFIX + "token", JSON.stringify({ url, token }));
+    localStorage.setItem(PREFIX + "token", JSON.stringify({ url, token }));
   } catch {
-    error("此分頁無法保存 Token，重新整理後需再輸入。");
+    error("無法保存 Token，請檢查瀏覽器設定。");
   }
   $("assignment-panel").hidden = true;
   $("input-empty").hidden = false;
@@ -857,7 +857,7 @@ function boot() {
   state.url = read("url", "") || legacy("gas_url");
   try {
     const saved = JSON.parse(
-      sessionStorage.getItem(PREFIX + "token") || "null",
+      localStorage.getItem(PREFIX + "token") || "null",
     );
     if (saved && saved.url === state.url) state.token = saved.token;
   } catch {}
