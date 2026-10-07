@@ -1299,13 +1299,8 @@ function boot() {
     download("作業雲端備份.json", await api({ action: "exportBackup" })),
   );
   bind("export-local", () => download("作業本機草稿備份.json", localDrafts()));
-  bind("clear-local", () => {
-    if (
-      !confirm(
-        "清除此版本所有本機草稿與設定？請先匯出備份。雲端與 V2.7 資料不會受影響。",
-      )
-    )
-      return;
+  function wipeLocalData(message) {
+    if (!confirm(message)) return;
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -1313,10 +1308,22 @@ function boot() {
     }
     keys.forEach((k) => localStorage.removeItem(k));
     localStorage.setItem(PREFIX + "legacy-disabled", "true");
-    sessionStorage.removeItem(PREFIX + "token");
+    try {
+      sessionStorage.removeItem(PREFIX + "token");
+    } catch {}
     state.active = null;
     location.reload();
-  });
+  }
+  bind("clear-local", () =>
+    wipeLocalData(
+      "清除此版本所有本機草稿與設定？請先匯出備份。雲端與 V2.7 資料不會受影響。",
+    ),
+  );
+  bind("logout-wipe-btn", () =>
+    wipeLocalData(
+      "公用電腦離開前清除？將刪除此裝置上的 Token 與所有本機草稿，雲端資料不受影響。",
+    ),
+  );
   window.addEventListener("beforeunload", (e) => {
     if (state.active && state.active.dirty) {
       persist();
