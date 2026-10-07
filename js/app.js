@@ -796,8 +796,25 @@ async function connect() {
   cancelCSV();
   write("url", url);
   write(sourceKey("catalog"), cat);
+  const remember = $("remember-token").checked;
   try {
-    localStorage.setItem(PREFIX + "token", JSON.stringify({ url, token }));
+    localStorage.setItem(PREFIX + "remember-token", JSON.stringify(remember));
+  } catch {
+    error("無法保存記住偏好，請檢查瀏覽器設定。");
+  }
+  try {
+    localStorage.removeItem(PREFIX + "token");
+  } catch {}
+  try {
+    sessionStorage.removeItem(PREFIX + "token");
+  } catch {}
+  try {
+    const payload = JSON.stringify({ url, token });
+    if (remember) {
+      localStorage.setItem(PREFIX + "token", payload);
+    } else {
+      sessionStorage.setItem(PREFIX + "token", payload);
+    }
   } catch {
     error("無法保存 Token，請檢查瀏覽器設定。");
   }
@@ -855,14 +872,42 @@ function bind(id, handler) {
 }
 function boot() {
   state.url = read("url", "") || legacy("gas_url");
+  let remember = false;
   try {
-    const saved = JSON.parse(
-      localStorage.getItem(PREFIX + "token") || "null",
+    const pref = JSON.parse(
+      localStorage.getItem(PREFIX + "remember-token") || "null",
     );
+    if (typeof pref === "boolean") remember = pref;
+  } catch {}
+  let storedLocal = null;
+  let storedSession = null;
+  try {
+    storedLocal = JSON.parse(localStorage.getItem(PREFIX + "token") || "null");
+  } catch {}
+  try {
+    storedSession = JSON.parse(
+      sessionStorage.getItem(PREFIX + "token") || "null",
+    );
+  } catch {}
+  try {
+    // 舊版一律記住：已有 localStorage Token 但還沒有偏好時，沿用記住以免被登出
+    if (
+      localStorage.getItem(PREFIX + "remember-token") === null &&
+      storedLocal &&
+      storedLocal.url === state.url &&
+      storedLocal.token
+    ) {
+      remember = true;
+      localStorage.setItem(PREFIX + "remember-token", JSON.stringify(true));
+    }
+  } catch {}
+  const saved = remember ? storedLocal : storedSession;
+  try {
     if (saved && saved.url === state.url) state.token = saved.token;
   } catch {}
   $("gas-url").value = state.url;
   $("gas-token").value = state.token;
+  $("remember-token").checked = remember;
   createSelectors("input", $("input-selectors"));
   createSelectors("report", $("report-selectors"));
   state.catalog = read(sourceKey("catalog"));
